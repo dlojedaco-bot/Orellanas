@@ -1,0 +1,17 @@
+{
+  "name": "Cultivo de Orellanas — Bruma",
+  "short_name": "Orellanas",
+  "description": "Registro de cultivo y cosecha de orellanas.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4EEE0",
+  "theme_color": "#1E3A2B",
+  "lang": "es",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
