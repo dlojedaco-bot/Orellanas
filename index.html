@@ -133,6 +133,12 @@
   .aviso-row .b.info{background:var(--verde-claro)}
   .aviso-row .c b{display:block;font-size:13px;color:var(--verde-hondo)}
   .aviso-row .c span{font-size:12.5px;color:var(--tierra)}
+  .aviso-row .c{flex:1}
+  .aviso-x{flex:none;align-self:center;background:none;border:none;color:var(--gris);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;margin-left:4px}
+  .aviso-x:active{color:var(--rojo)}
+  .avisos-top{display:flex;justify-content:flex-end;margin-bottom:10px}
+  .btn-limpiar{background:none;border:1px solid var(--linea);color:var(--tierra);font-family:'Karla',sans-serif;font-size:12px;font-weight:700;padding:7px 14px;border-radius:20px;cursor:pointer}
+  .btn-limpiar:active{background:var(--crema-clara)}
 
   /* Resumen */
   .kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -512,26 +518,26 @@ function avisosDeBolsa(b){
   const f=b.fields, est=f[F.estado], out=[];
   if(est==='En incubación'){
     const d=dias(f[F.inoculacion]);
-    if(d==null) out.push({nivel:'accion',texto:'Falta la fecha de inoculación para seguir la colonización.'});
-    else if(d>colAlerta()) out.push({nivel:'alerta',texto:`Lleva ${d} días colonizando (más de ${colAlerta()}). Revisa posible contaminación.`});
-    else if(d>=colObjetivo()) out.push({nivel:'accion',texto:`Lleva ${d} días colonizando. Revisa si ya está lista para abrir.`});
-    else out.push({nivel:'info',texto:`Colonizando, día ${d} de ~${colObjetivo()}. Mantén oscuridad y humedad.`});
+    if(d==null) out.push({nivel:'accion',clave:'inoc',texto:'Falta la fecha de inoculación para seguir la colonización.'});
+    else if(d>colAlerta()) out.push({nivel:'alerta',clave:'colonizacion',texto:`Lleva ${d} días colonizando (más de ${colAlerta()}). Revisa posible contaminación.`});
+    else if(d>=colObjetivo()) out.push({nivel:'accion',clave:'colonizacion',texto:`Lleva ${d} días colonizando. Revisa si ya está lista para abrir.`});
+    else out.push({nivel:'info',clave:'colonizacion',texto:`Colonizando, día ${d} de ~${colObjetivo()}. Mantén oscuridad y humedad.`});
   } else if(est==='Activa'){
     const dr=dias(f[F.ultimoRiego]);
-    if(dr==null) out.push({nivel:'accion',texto:'Sin registro de riego. Mantén la humedad y anótalo en el detalle.'});
-    else if(dr>=RANGO.riegoDias) out.push({nivel:'accion',texto:`Último riego hace ${dr} días. Toca mantener la humedad.`});
+    if(dr==null) out.push({nivel:'accion',clave:'riego',texto:'Sin registro de riego. Mantén la humedad y anótalo en el detalle.'});
+    else if(dr>=RANGO.riegoDias) out.push({nivel:'accion',clave:'riego',texto:`Último riego hace ${dr} días. Toca mantener la humedad.`});
     const cs=cosechasDeBolsa(b.id);
     if(cs.length){
       const dg=dias(cs[cs.length-1].fecha);
-      if(dg>flushAlerta()) out.push({nivel:'alerta',texto:`${dg} días sin cosechar (más de ${flushAlerta()}). Revisa humedad o si ya se agotó.`});
-      else if(dg>=flushObjetivo()) out.push({nivel:'accion',texto:`${dg} días desde la última cosecha. Debería venir otra oleada pronto.`});
-      else out.push({nivel:'info',texto:`Última cosecha hace ${dg} días. Descansando para la próxima oleada.`});
+      if(dg>flushAlerta()) out.push({nivel:'alerta',clave:'oleada',texto:`${dg} días sin cosechar (más de ${flushAlerta()}). Revisa humedad o si ya se agotó.`});
+      else if(dg>=flushObjetivo()) out.push({nivel:'accion',clave:'oleada',texto:`${dg} días desde la última cosecha. Debería venir otra oleada pronto.`});
+      else out.push({nivel:'info',clave:'oleada',texto:`Última cosecha hace ${dg} días. Descansando para la próxima oleada.`});
     } else if(f[F.apertura]){
       const da=dias(f[F.apertura]);
-      if(da>12) out.push({nivel:'alerta',texto:`Abierta hace ${da} días y aún sin cosecha. Revisa condiciones.`});
-      else out.push({nivel:'info',texto:`Abierta hace ${da} días. Deberían aparecer primordios pronto.`});
+      if(da>12) out.push({nivel:'alerta',clave:'sin-cosecha',texto:`Abierta hace ${da} días y aún sin cosecha. Revisa condiciones.`});
+      else out.push({nivel:'info',clave:'sin-cosecha',texto:`Abierta hace ${da} días. Deberían aparecer primordios pronto.`});
     } else {
-      out.push({nivel:'info',texto:'En producción. Marca la fecha de apertura para seguir las oleadas.'});
+      out.push({nivel:'info',clave:'apertura',texto:'En producción. Marca la fecha de apertura para seguir las oleadas.'});
     }
   }
   return out;
@@ -539,10 +545,19 @@ function avisosDeBolsa(b){
 
 function pendientesLista(){
   const out=[];
-  bolsasVivas().forEach(b=> avisosDeBolsa(b).forEach(a=>{ if(a.nivel!=='info') out.push({b,a}); }));
+  bolsasVivas().forEach(b=> avisosDeBolsa(b).forEach(a=>{ if(a.nivel!=='info' && !estaDescartado(b.id,a.clave)) out.push({b,a}); }));
   out.sort((x,y)=> (y.a.nivel==='alerta'?1:0)-(x.a.nivel==='alerta'?1:0));
   return out;
 }
+
+/* ---------- Descartar avisos (se ocultan por hoy; reaparecen mañana si siguen) ---------- */
+function offMap(){ try{ return JSON.parse(store.get('orellanas_avisos_off')||'{}'); }catch(e){ return {}; } }
+function podarOff(m){ const h=hoy(), out={}; for(const k in m){ if(m[k]===h) out[k]=m[k]; } return out; }
+function guardarOff(m){ store.set('orellanas_avisos_off', JSON.stringify(podarOff(m))); }
+function avisoKey(bid,clave){ return bid+'|'+(clave||''); }
+function estaDescartado(bid,clave){ return offMap()[avisoKey(bid,clave)]===hoy(); }
+function descartarAviso(bid,clave){ const m=offMap(); m[avisoKey(bid,clave)]=hoy(); guardarOff(m); refrescarVistas(); }
+function descartarTodos(){ const m=offMap(); pendientesLista().forEach(({b,a})=>{ m[avisoKey(b.id,a.clave)]=hoy(); }); guardarOff(m); refrescarVistas(); aviso('Avisos descartados por hoy'); }
 
 /* ---------- Selector de cosecha ---------- */
 function pintarSelector(){
@@ -607,11 +622,14 @@ function pintarPanelAvisos(){
   const lista=pendientesLista();
   if(!lista.length){ card.style.display='none'; return }
   card.style.display='';
-  panel.innerHTML=lista.map(({b,a})=>`
+  let html=`<div class="avisos-top"><button class="btn-limpiar" onclick="descartarTodos()">Descartar todos</button></div>`;
+  html+=lista.map(({b,a})=>`
     <div class="aviso-row tap" onclick="abrirDetalle('${b.id}')">
       <span class="b ${a.nivel}"></span>
       <div class="c"><b>${b.fields[F.bolsaNombre]||'Bolsa'}</b><span>${a.texto}</span></div>
+      <button class="aviso-x" onclick="event.stopPropagation();descartarAviso('${b.id}','${a.clave}')" aria-label="Descartar">×</button>
     </div>`).join('');
+  panel.innerHTML=html;
 }
 function pintarBanner(){
   const n=pendientesLista().length, b=$('banner-pend');
