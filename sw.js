@@ -1,5 +1,5 @@
 /* Cultivo de Orellanas — service worker */
-const CACHE = 'orellanas-v2';
+const CACHE = 'orellanas-v4';
 const SHELL = [
   './',
   './index.html',
