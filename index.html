@@ -145,6 +145,13 @@
   .aviso-row .c{flex:1}
   .aviso-x{flex:none;align-self:center;background:none;border:none;color:var(--gris);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;margin-left:4px}
   .aviso-x:active{color:var(--rojo)}
+  .riego-slots{display:flex;gap:10px}
+  .riego-slots button{flex:1;border:1.5px solid var(--linea);background:#fff;border-radius:14px;padding:13px 6px;cursor:pointer;font-family:'Karla',sans-serif;display:flex;flex-direction:column;align-items:center;gap:5px;color:var(--tierra);transition:all .12s}
+  .riego-slots button .ico{font-size:20px;line-height:1}
+  .riego-slots button .et{font-size:12.5px;font-weight:700}
+  .riego-slots button:active{transform:scale(.97)}
+  .riego-slots button.hecho{background:var(--teal);border-color:var(--teal);color:#fff}
+  .riego-estado{font-size:12.5px;color:var(--tierra);margin-top:11px;text-align:center}
   .avisos-top{display:flex;justify-content:flex-end;margin-bottom:10px}
   .btn-limpiar{background:none;border:1px solid var(--linea);color:var(--tierra);font-family:'Karla',sans-serif;font-size:12px;font-weight:700;padding:7px 14px;border-radius:20px;cursor:pointer}
   .btn-limpiar:active{background:var(--crema-clara)}
@@ -293,6 +300,13 @@
       <button class="btn btn-verde" id="btn-bolsa" disabled>Guardar bolsa</button>
     </div>
 
+    <div class="tarjeta compacta">
+      <h2>Riego de hoy</h2>
+      <p class="pista">Riegas todo el mueble en grupo, 3 veces al día. Marca cada riego cuando lo hagas.</p>
+      <div class="riego-slots" id="riego-slots"></div>
+      <div class="riego-estado" id="riego-estado"></div>
+    </div>
+
     <div class="tarjeta" id="card-avisos" style="display:none">
       <h2>Pendientes</h2>
       <p class="pista">Qué toca hacer hoy, según cómo van tus bolsas.</p>
@@ -426,6 +440,7 @@ function ir(v){
   $('v-'+v).classList.add('activa');
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('activa',b.dataset.v===v));
   window.scrollTo(0,0);
+  if(v==='bolsas') pintarRiego();
   if((v==='resumen'||v==='bolsas') && conectado) cargarTodo();
 }
 
@@ -501,6 +516,32 @@ function refrescarVistas(){
   actualizarBadge(); pintarBanner(); pintarResumen();
 }
 
+/* ---------- Riego general (todo el mueble, 3 veces al día) ---------- */
+const RIEGOS=[{k:'manana',et:'Mañana',ico:'🌅'},{k:'tarde',et:'Tarde',ico:'☀️'},{k:'noche',et:'Noche',ico:'🌙'}];
+function riegoHoyMap(){
+  try{ const o=JSON.parse(store.get('orellanas_riego')||'{}'); return (o.fecha===hoy())?o:{fecha:hoy()}; }
+  catch(e){ return {fecha:hoy()}; }
+}
+function guardarRiego(m){ m.fecha=hoy(); store.set('orellanas_riego', JSON.stringify(m)); }
+function toggleRiego(k){
+  const m=riegoHoyMap();
+  if(m[k]) delete m[k]; else m[k]=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  guardarRiego(m); pintarRiego();
+}
+function pintarRiego(){
+  const cont=$('riego-slots'); if(!cont) return;
+  const m=riegoHoyMap();
+  cont.innerHTML=RIEGOS.map(r=>`<button class="${m[r.k]?'hecho':''}" onclick="toggleRiego('${r.k}')">
+    <span class="ico">${m[r.k]?'✓':r.ico}</span><span class="et">${r.et}</span>
+    ${m[r.k]?`<span style="font-size:11px;font-weight:400;opacity:.9">${m[r.k]}</span>`:''}
+  </button>`).join('');
+  const hechos=RIEGOS.filter(r=>m[r.k]).length;
+  const est=$('riego-estado');
+  est.textContent = hechos===3 ? '✓ Los 3 riegos de hoy, listos'
+    : hechos===0 ? 'Aún no has marcado riegos hoy'
+    : `${hechos} de 3 riegos hechos hoy`;
+}
+
 function bolsasVivas(){
   return bolsas.filter(b=>{
     const s=b.fields[F.estado];
@@ -545,9 +586,6 @@ function avisosDeBolsa(b){
     else if(d>=colObjetivo()) out.push({nivel:'accion',clave:'colonizacion',texto:`Lleva ${d} días colonizando. Revisa si ya está lista para abrir.`});
     else out.push({nivel:'info',clave:'colonizacion',texto:`Colonizando, día ${d} de ~${colObjetivo()}. Mantén oscuridad y humedad.`});
   } else if(est==='Activa'){
-    const dr=dias(f[F.ultimoRiego]);
-    if(dr==null) out.push({nivel:'accion',clave:'riego',texto:'Sin registro de riego. Mantén la humedad y anótalo en el detalle.'});
-    else if(dr>=RANGO.riegoDias) out.push({nivel:'accion',clave:'riego',texto:`Último riego hace ${dr} días. Toca mantener la humedad.`});
     const cs=cosechasDeBolsa(b.id);
     if(cs.length){
       const dg=dias(cs[cs.length-1].fecha);
@@ -716,7 +754,6 @@ function abrirDetalle(id){
     <button class="b-peli" onclick="descartarModal('${id}','Contaminada')">Contaminada</button>
     <button class="b-sec" onclick="descartarModal('${id}','Descartada')">Descartar</button>`;
   else if(est==='Activa') acc=`
-    <button class="b-prim" onclick="regarHoy('${id}')">Registré riego hoy</button>
     <button class="b-ocre" onclick="cosecharDe('${id}')">Cosechar de esta bolsa</button>
     <button class="b-sec" onclick="agotar('${id}')">Marcar agotada</button>
     <button class="b-peli" onclick="descartarModal('${id}','Contaminada')">Contaminada</button>`;
@@ -738,7 +775,6 @@ function abrirDetalle(id){
     <div class="m-seccion"><h4>Fechas</h4>
       <div class="m-fecha"><label>Inoculación</label><input type="date" value="${f[F.inoculacion]||''}" onchange="guardarFecha('${id}','inoculacion',this.value)"></div>
       <div class="m-fecha"><label>Apertura</label><input type="date" value="${f[F.apertura]||''}" onchange="guardarFecha('${id}','apertura',this.value)"></div>
-      <div class="m-fecha"><label>Último riego</label><input type="date" value="${f[F.ultimoRiego]||''}" onchange="guardarFecha('${id}','ultimoRiego',this.value)"></div>
     </div>
     ${avHtml}
     <div class="m-seccion"><h4>Acciones</h4><div class="m-acc">${acc}</div></div>`;
@@ -864,6 +900,7 @@ function init(){
   $('btn-notif').addEventListener('click',pedirNotif);
   $('btn-refrescar').addEventListener('click',()=>{ if(conectado){cargarTodo();aviso('Datos actualizados')} else aviso('Conecta primero',true) });
   $('modal-fondo').addEventListener('click',e=>{ if(e.target===$('modal-fondo')) cerrarModal(); });
+  pintarRiego();
 
   if(PAT){ $('a-pat').value=PAT; $('btn-bolsa').disabled=false;
     api('GET',T_BOLSAS,'?maxRecords=1').then(async()=>{ marcarConexion(true); await cargarTodo(); })
@@ -871,7 +908,14 @@ function init(){
   }
 }
 if('serviceWorker' in navigator){
-  window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+  // Recarga una vez cuando entra una versión nueva, para no quedarse en la vieja.
+  let recargando=false;
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(recargando) return; recargando=true; location.reload();
+  });
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('sw.js').then(function(reg){ try{ reg.update(); }catch(e){} }).catch(function(){});
+  });
 }
 init();
 </script>

@@ -1,5 +1,5 @@
 /* Cultivo de Orellanas — service worker */
-const CACHE = 'orellanas-v4';
+const CACHE = 'orellanas-v5';
 const SHELL = [
   './',
   './index.html',
@@ -24,18 +24,20 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  const url = new URL(e.request.url);
-  // Deja pasar a la red las peticiones a Airtable y cualquier otra de otro origen,
-  // y todo lo que no sea GET: esos datos deben ser siempre en vivo.
-  if (e.request.method !== 'GET' || url.origin !== location.origin) return;
-  // App shell: red primero, con respaldo en caché para funcionar sin internet.
+  const req = e.request;
+  const url = new URL(req.url);
+  // Otros orígenes (Airtable, fuentes) y lo que no sea GET: siempre en vivo.
+  if (req.method !== 'GET' || url.origin !== location.origin) return;
+
+  // La página y el código propio: SIEMPRE de la red fresca (sin caché del navegador),
+  // y solo si no hay internet se usa la copia guardada. Así la app se actualiza sola.
   e.respondWith(
-    fetch(e.request)
+    fetch(req, { cache: 'no-store' })
       .then((r) => {
         const copy = r.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        caches.open(CACHE).then((c) => c.put(req, copy));
         return r;
       })
-      .catch(() => caches.match(e.request).then((m) => m || caches.match('./index.html')))
+      .catch(() => caches.match(req).then((m) => m || caches.match('./index.html')))
   );
 });
