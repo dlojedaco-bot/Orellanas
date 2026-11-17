@@ -14,7 +14,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Croissant+One&family=Karla:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Croissant+One&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Karla:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
   :root{
     --verde-hondo:#164032;
@@ -31,6 +31,11 @@
     --teal:#1E7E78;
     --teal-hondo:#155F5A;
     --gris:#8A8578;
+    --r-sage:#9FB4A2;
+    --r-taupe:#B9AD93;
+    --r-pizarra:#5C7D86;
+    --r-hueso:#E7E0D0;
+    --r-gris:#AEA894;
     --linea:rgba(22,64,50,.13);
     --sombra:0 2px 14px rgba(22,64,50,.10);
   }
@@ -170,6 +175,32 @@
   .kpi.destacado .n{color:#fff}
   .kpi.destacado .l{color:rgba(255,255,255,.75)}
   .kpi.ancho{grid-column:1/3}
+
+  /* Resumen infografía (sobrio) */
+  .r-num{font-family:'Fraunces',Georgia,serif;font-weight:400;font-variant-numeric:tabular-nums;letter-spacing:.2px}
+  .r-card{background:var(--crema-clara);border:1px solid var(--linea);border-radius:14px;padding:17px 18px;margin-bottom:13px}
+  .r-kicker{font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--r-gris);font-weight:700}
+  .r-hr{height:1px;background:var(--linea);border:0;margin:14px 0}
+  .r-lbl{font-size:11.5px;color:var(--tierra)}
+  .r-hero .r-num{font-size:36px;color:var(--verde-hondo);line-height:1.1;margin-top:6px}
+  .r-sub{display:flex;justify-content:space-between}
+  .r-sub .r-num{font-size:17px;color:var(--verde-hondo)}
+  .r-row3{display:flex}
+  .r-row3 .c{flex:1}
+  .r-row3 .c+.c{border-left:1px solid var(--linea);padding-left:14px}
+  .r-row3 .r-num{font-size:22px;color:var(--verde-hondo)}
+  .r-leg{display:flex;flex-direction:column;gap:11px}
+  .r-leg div{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--verde-hondo)}
+  .r-leg .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .r-axis{display:flex;justify-content:space-between;margin-top:2px}
+  .r-axis span{font-size:10px;letter-spacing:.5px;color:var(--r-gris)}
+  .r-tipo{margin-bottom:12px}
+  .r-tipo:last-child{margin-bottom:0}
+  .r-tipo .top{display:flex;justify-content:space-between;font-size:12.5px;color:var(--verde-hondo)}
+  .r-tipo .top .r-num{font-size:13px}
+  .r-track{background:var(--r-hueso);border-radius:3px;height:9px;margin-top:6px;overflow:hidden}
+  .r-fill{height:9px;border-radius:3px}
+  #resumen-cont{max-width:480px;margin:0 auto}
 
   /* Barra inferior */
   nav{position:fixed;bottom:0;left:0;right:0;max-width:760px;margin:0 auto;background:var(--crema-clara);border-top:1px solid var(--linea);display:flex;padding:8px 6px calc(8px + env(safe-area-inset-bottom));z-index:30}
@@ -333,14 +364,10 @@
 
   <!-- ===== RESUMEN ===== -->
   <section class="vista" id="v-resumen">
-    <div class="tarjeta compacta">
-      <h2>Rendimiento e ingresos</h2>
-      <p class="pista">Calculado desde todas tus bolsas y cosechas.</p>
-      <div class="kpis" id="kpis">
-        <div class="kpi ancho"><div class="cargando">Conecta en Ajustes para ver tus números.</div></div>
-      </div>
-      <button class="btn btn-linea" id="btn-refrescar">Actualizar datos</button>
+    <div id="resumen-cont">
+      <div class="r-card"><div class="cargando">Conecta en Ajustes para ver tus números.</div></div>
     </div>
+    <button class="btn btn-linea" id="btn-refrescar" style="max-width:480px;margin-left:auto;margin-right:auto;display:block">Actualizar datos</button>
   </section>
 
   <!-- ===== AJUSTES ===== -->
@@ -724,34 +751,105 @@ function actualizarBadge(){
 }
 
 /* ---------- Resumen ---------- */
+/* --- Ayudantes de gráficas SVG --- */
+function svgDonut(segs,cx,cy,r,w){
+  const tot=segs.reduce((a,s)=>a+s.v,0)||1; let a0=-90, out='';
+  segs.forEach(s=>{ if(s.v<=0) return;
+    const sw=s.v/tot*360, a1=a0+sw, la=sw>180?1:0, rad=Math.PI/180;
+    const x0=cx+r*Math.cos(a0*rad), y0=cy+r*Math.sin(a0*rad);
+    const x1=cx+r*Math.cos(a1*rad), y1=cy+r*Math.sin(a1*rad);
+    out+=`<path d="M${x0.toFixed(1)},${y0.toFixed(1)} A${r},${r} 0 ${la} 1 ${x1.toFixed(1)},${y1.toFixed(1)}" fill="none" stroke="${s.c}" stroke-width="${w}"/>`;
+    a0=a1;
+  });
+  return out;
+}
+function svgArea(vals,w,h,col,fill,pad){
+  pad=pad||6; const n=vals.length; if(n<2){ return ''; }
+  const maxv=Math.max(...vals)||1;
+  const xs=vals.map((_,i)=>pad+i*(w-2*pad)/(n-1));
+  const ys=vals.map(v=>h-16-(v/maxv)*(h-26));
+  const pts=xs.map((x,i)=>`${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
+  const poly=`${pad},${h-16} ${pts} ${w-pad},${h-16}`;
+  const dots=xs.map((x,i)=>`<circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="2.6" fill="${col}"/>`).join('');
+  return `<polygon points="${poly}" fill="${fill}"/><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2"/>${dots}`;
+}
+const MES3=['','ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+
 function pintarResumen(){
-  const cont=$('kpis');
-  if(!bolsas.length){cont.innerHTML='<div class="kpi ancho"><div class="cargando">Aún no hay datos que resumir.</div></div>';return}
-  let pesoG=0,ingreso=0,costo=0,ncos=0,cont_=0,desc=0,vivas=0,incub=0,prod=0;
+  const cont=$('resumen-cont');
+  if(!bolsas.length){cont.innerHTML='<div class="r-card"><div class="cargando">Aún no hay datos que resumir.</div></div>';return}
+  let pesoG=0,ingreso=0,costo=0,ncos=0,prod=0,incub=0,fuera=0,pesoAct=0;
+  const tkg={}, tn={};
   bolsas.forEach(b=>{const f=b.fields;
     pesoG+=f[F.pesoTotal]||0; ingreso+=f[F.ingresoTotal]||0; costo+=f[F.costo]||0;
     ncos+=f[F.numCosechas]||0;
     const s=f[F.estado];
-    if(s==='Contaminada')cont_++; else if(s==='Descartada')desc++; else if(s==='Agotada'){}
-    else { vivas++; if(s==='En incubación')incub++; else prod++; }
+    if(s==='En incubación') incub++;
+    else if(s==='Activa'){ prod++; pesoAct+=f[F.pesoTotal]||0; }
+    else fuera++;
+    const t=f[F.tipo]; if(t){ tkg[t]=(tkg[t]||0)+(f[F.pesoTotal]||0); tn[t]=(tn[t]||0)+1; }
   });
-  const neto=ingreso-costo, kg=pesoG/1000, perdidas=cont_+desc;
-  const rendProd=prod?(kg/prod):0;
-  const pc=promColonizacion(), po=promOleadas();
-  const colTxt=pc?Math.round(pc)+' días':'—', olTxt=po?Math.round(po)+' días':'—';
-  cont.innerHTML=`
-    <div class="kpi destacado ancho"><div class="n">$${money(neto)}</div><div class="l">Ingreso neto (ingresos − costos)</div></div>
-    <div class="kpi"><div class="n">${kg.toFixed(2)} kg</div><div class="l">Cosechado en total</div></div>
-    <div class="kpi"><div class="n">${ncos}</div><div class="l">Cosechas registradas</div></div>
-    <div class="kpi"><div class="n">$${money(ingreso)}</div><div class="l">Ingresos brutos</div></div>
-    <div class="kpi"><div class="n">$${money(costo)}</div><div class="l">Costo de bolsas</div></div>
-    <div class="kpi"><div class="n">${prod}</div><div class="l">En producción</div></div>
-    <div class="kpi"><div class="n">${incub}</div><div class="l">En incubación</div></div>
-    <div class="kpi"><div class="n">${colTxt}</div><div class="l">Colonización prom. (típico 14–21)</div></div>
-    <div class="kpi"><div class="n">${olTxt}</div><div class="l">Descanso entre oleadas (típico 10–14)</div></div>
-    <div class="kpi"><div class="n">${perdidas}</div><div class="l">Perdidas (${cont_} cont. · ${desc} desc.)</div></div>
-    <div class="kpi ancho"><div class="n">${rendProd.toFixed(2)} kg</div><div class="l">Rendimiento promedio por bolsa en producción</div></div>
-  `;
+  const neto=ingreso-costo, kg=pesoG/1000, total=bolsas.length;
+  const promAct=prod?Math.round(pesoAct/prod):0;
+
+  // cosecha acumulada por mes
+  const mm={};
+  cosechas.forEach(c=>{ const fch=c.fields[F.fechaCosecha]; if(!fch) return;
+    const k=String(fch).slice(0,7); mm[k]=(mm[k]||0)+(c.fields[F.peso]||0); });
+  const mk=Object.keys(mm).sort();
+  let acc=0; const cum=mk.map(k=>{acc+=mm[k]; return acc/1000;});
+  const mlabels=mk.map(k=>MES3[parseInt(k.slice(5),10)]);
+
+  // tipos presentes, en orden
+  const ordenT=['Blanca','Azul','Rosada'].filter(t=>tn[t]);
+  const colT={Blanca:'var(--r-taupe)',Azul:'var(--r-pizarra)',Rosada:'#C58AA3'};
+  const maxT=Math.max(...ordenT.map(t=>tkg[t]),1);
+
+  let html='';
+  // Hero ingreso neto
+  html+=`<div class="r-card r-hero">
+    <div class="r-kicker">Ingreso neto</div>
+    <div class="r-num">${neto<0?'−$':'$'}${money(Math.abs(neto))}</div>
+    <hr class="r-hr">
+    <div class="r-sub">
+      <div><div class="r-lbl">Ingresos</div><div class="r-num">$${money(ingreso)}</div></div>
+      <div style="text-align:right"><div class="r-lbl">Costo de bolsas</div><div class="r-num">$${money(costo)}</div></div>
+    </div></div>`;
+  // Fila de 3
+  html+=`<div class="r-card"><div class="r-row3">
+    <div class="c"><div class="r-num">${kg.toFixed(2)}</div><div class="r-lbl">kg cosechados</div></div>
+    <div class="c"><div class="r-num">${ncos}</div><div class="r-lbl">cosechas</div></div>
+    <div class="c"><div class="r-num">${promAct} g</div><div class="r-lbl">prom. / bolsa</div></div>
+  </div></div>`;
+  // Estado donut
+  html+=`<div class="r-card"><div class="r-kicker">Estado de las bolsas</div>
+    <div style="display:flex;align-items:center;gap:18px;margin-top:12px">
+    <svg width="120" height="120" viewBox="0 0 120 120" style="flex:none">
+      ${svgDonut([{v:prod,c:'var(--verde)'},{v:incub,c:'var(--r-sage)'},{v:fuera,c:'var(--r-gris)'}],60,60,48,9)}
+      <text x="60" y="57" class="r-num" font-size="25" fill="var(--verde-hondo)" text-anchor="middle">${total}</text>
+      <text x="60" y="74" font-size="10" fill="var(--tierra)" text-anchor="middle">bolsas</text></svg>
+    <div class="r-leg">
+      <div><span class="dot" style="background:var(--verde)"></span>En producción · <b style="margin-left:2px">${prod}</b></div>
+      <div><span class="dot" style="background:var(--r-sage)"></span>En incubación · <b style="margin-left:2px">${incub}</b></div>
+      <div><span class="dot" style="background:var(--r-gris)"></span>Agotadas/perdidas · <b style="margin-left:2px">${fuera}</b></div>
+    </div></div></div>`;
+  // Cosecha acumulada
+  if(cum.length>=2){
+    html+=`<div class="r-card"><div class="r-kicker">Cosecha acumulada · kg</div>
+      <svg viewBox="0 0 320 128" style="margin-top:8px;display:block;width:100%;height:auto">
+      ${svgArea(cum,320,128,'var(--verde)','rgba(47,90,61,.10)')}</svg>
+      <div class="r-axis">${mlabels.map(l=>`<span>${l}</span>`).join('')}</div></div>`;
+  }
+  // Rendimiento por tipo
+  if(ordenT.length){
+    html+=`<div class="r-card"><div class="r-kicker">Rendimiento por tipo</div><div style="margin-top:13px">`;
+    ordenT.forEach(t=>{ const frac=tkg[t]/maxT*100;
+      html+=`<div class="r-tipo"><div class="top"><span>Orellana ${t.toLowerCase()} · ${tn[t]} bolsas</span><span class="r-num">${(tkg[t]/1000).toFixed(2)} kg</span></div>
+      <div class="r-track"><div class="r-fill" style="width:${Math.max(frac,2).toFixed(0)}%;background:${colT[t]}"></div></div></div>`;
+    });
+    html+=`</div></div>`;
+  }
+  cont.innerHTML=html;
 }
 
 /* ---------- Detalle (modal) ---------- */
